@@ -5431,13 +5431,6 @@ function redzlib:MakeWindow(Configs)
 		end
 	})
 
-	task.spawn(function()
-		while ScreenGui and ScreenGui.Parent do
-			task.wait(2)
-			RefreshScriptButtonDropdown()
-		end
-	end)
-
 	print("Applying saved theme: " .. redzlib.Save.Theme)
 	redzlib:SetTheme(redzlib.Save.Theme, true)
 

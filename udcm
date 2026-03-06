@@ -5309,13 +5309,16 @@ function redzlib:MakeWindow(Configs)
 		table.insert(ThemeOptions, Name)
 	end
 
-	local ThemeDropdown = SettingsTab:AddDropdown({
+	local ThemeDropdown
+	ThemeDropdown = SettingsTab:AddDropdown({
 		Name = "Theme",
 		Options = ThemeOptions,
 		Default = redzlib.Save.Theme,
 		Callback = function(Value)
 			redzlib:SetTheme(Value)
-			ThemeDropdown:SetSelected(Value)
+			if ThemeDropdown and ThemeDropdown.SetSelected then
+				ThemeDropdown:SetSelected(Value)
+			end
 		end
 	})
 
@@ -5352,49 +5355,88 @@ function redzlib:MakeWindow(Configs)
 		end
 	})
 
-	SettingsTab:AddSection("Executor Pc")
+	SettingsTab:AddSection("How to use Autoinject Script")
 
-	SettingsTab:AddButton({
-		Name = "Get Executor Solara(pc)",
-		Callback = function()
-			setclipboard("https://api.getsolara.gg/")
+	local AutoInjectButtonName = "..."
+	local function BuildAutoInjectText()
+		return string.format(
+			'local G = getgenv()\nG.ButtonName = "%s"\nG.AutoInject = true\n\nloadstring(game:HttpGet("https://raw.githubusercontent.com/Luongdaynetroi/ScriptTongHop/refs/heads/main/.lua"))()',
+			AutoInjectButtonName
+		)
+	end
+
+	local AutoInjectPreview = SettingsTab:AddParagraph({
+		Title = "Autoinject Example",
+		Text = BuildAutoInjectText()
+	})
+
+	local function GetAllScriptButtonNames()
+		local result, seen = {}, {}
+		for _, ElementData in pairs(redzlib.AllElements) do
+			if ElementData.Type == "Button" and type(ElementData.Name) == "string" and ElementData.Name ~= "" then
+				if not seen[ElementData.Name] then
+					seen[ElementData.Name] = true
+					table.insert(result, ElementData.Name)
+				end
+			end
+		end
+		table.sort(result, function(a, b)
+			return string.lower(a) < string.lower(b)
+		end)
+		if #result == 0 then
+			result = {"..."}
+		end
+		return result
+	end
+
+	local InitialButtonOptions = GetAllScriptButtonNames()
+	if InitialButtonOptions[1] and InitialButtonOptions[1] ~= "..." then
+		AutoInjectButtonName = InitialButtonOptions[1]
+		AutoInjectPreview:Set("Autoinject Example", BuildAutoInjectText())
+	end
+
+	local ScriptButtonDropdown
+	local function RefreshScriptButtonDropdown()
+		if ScriptButtonDropdown then
+			local names = GetAllScriptButtonNames()
+			ScriptButtonDropdown:Set(names)
+			if names[1] and not table.find(names, AutoInjectButtonName) then
+				AutoInjectButtonName = names[1]
+				AutoInjectPreview:Set("Autoinject Example", BuildAutoInjectText())
+			end
+		end
+	end
+
+	ScriptButtonDropdown = SettingsTab:AddDropdown({
+		Name = "All Script Buttons",
+		Options = InitialButtonOptions,
+		Default = AutoInjectButtonName,
+		Callback = function(Value)
+			if type(Value) == "string" and Value ~= "" then
+				AutoInjectButtonName = Value
+				AutoInjectPreview:Set("Autoinject Example", BuildAutoInjectText())
+			end
 		end
 	})
 
 	SettingsTab:AddButton({
-		Name = "Get Executor Velocity",
-		Callback = function()
-			setclipboard("https://realvelocity.xyz/")
-		end
+		Name = "Refresh Script Button List",
+		Callback = RefreshScriptButtonDropdown
 	})
 
 	SettingsTab:AddButton({
-		Name = "Get Executor Xeno(pc)",
+		Name = "Copy Autoinject Example",
 		Callback = function()
-			setclipboard("https://www.xeno.onl/")
+			setclipboard(BuildAutoInjectText())
 		end
 	})
 
-	SettingsTab:AddButton({
-		Name = "Get Executor Bunni(Pc)",
-		Callback = function()
-			setclipboard("https://wearedevs.net/d/Bunni")
+	task.spawn(function()
+		while ScreenGui and ScreenGui.Parent do
+			task.wait(2)
+			RefreshScriptButtonDropdown()
 		end
-	})
-
-	SettingsTab:AddButton({
-		Name = "Get Executor Drift(pc)",
-		Callback = function()
-			setclipboard("https://wearedevs.net/d/Drift")
-		end
-	})
-
-	SettingsTab:AddButton({
-		Name = "Get Executor TNG",
-		Callback = function()
-			setclipboard("https://tngexploit.vercel.app/")
-		end
-	})
+	end)
 
 	print("Applying saved theme: " .. redzlib.Save.Theme)
 	redzlib:SetTheme(redzlib.Save.Theme, true)

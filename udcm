@@ -3448,6 +3448,36 @@ function redzlib:MakeWindow(Configs)
 	local WMiniText = Configs[2] or Configs.SubTitle or "by : redz9999"
 	
 	Settings.ScriptFile = Configs[3] or Configs.SaveFolder or false
+
+	local AutoInject = {
+		Enabled = false,
+		ButtonName = nil,
+		Done = false
+	}
+	do
+		local env = (type(getgenv) == "function" and getgenv()) or _G
+		local source = (type(env) == "table" and type(env.G) == "table" and env.G) or env
+		if type(source) == "table" then
+			AutoInject.Enabled = source.AutoInject == true
+			if type(source.ButtonName) == "string" then
+				local name = source.ButtonName:gsub("^%s+", ""):gsub("%s+$", "")
+				if #name > 0 then
+					AutoInject.ButtonName = string.lower(name)
+				end
+			end
+		end
+	end
+
+	local function TryAutoInject(ButtonName, CallbackTab)
+		if not AutoInject.Enabled or AutoInject.Done then return end
+		if type(ButtonName) ~= "string" or type(CallbackTab) ~= "table" then return end
+		if not AutoInject.ButtonName then return end
+		if string.lower(ButtonName) ~= AutoInject.ButtonName then return end
+		AutoInject.Done = true
+		task.defer(function()
+			Funcs:FireCallback(CallbackTab)
+		end)
+	end
 	
 	local function LoadFile()
 		local File = Settings.ScriptFile
@@ -4239,6 +4269,7 @@ function redzlib:MakeWindow(Configs)
 			TIcon = false
 		end
 		
+		local Locked = Configs.Locked or false
 		local SelectParent = Configs.Parent or MainScroll
 		local TabSelect = Make("Button", SelectParent, {
 			Size = UDim2.new(1, 0, 0, 24)
@@ -4268,6 +4299,15 @@ function redzlib:MakeWindow(Configs)
 			Image = TIcon or "",
 			BackgroundTransparency = 1,
 			ImageTransparency = (FirstTab and 0.3) or 0
+		}), "Text")
+		
+		local LockIcon = InsertTheme(Create("ImageLabel", TabSelect, {
+			Position = UDim2.new(1, -8, 0.5),
+			Size = UDim2.new(0, 12, 0, 12),
+			AnchorPoint = Vector2.new(1, 0.5),
+			Image = "rbxassetid://6026568224",
+			BackgroundTransparency = 1,
+			Visible = Locked
 		}), "Text")
 		
 		local Selected = InsertTheme(Create("Frame", TabSelect, {
@@ -4329,11 +4369,18 @@ function redzlib:MakeWindow(Configs)
 			ActiveContainer = Container
 			MarkVisited(Container)
 		end
-		TabSelect.Activated:Connect(Tabs)
+		local function TryOpen()
+			if Locked then
+				Window:Notify({Title = "Locked", Text = "Tab này đang bị khóa.", Duration = 2, Type = "Warning"})
+				return
+			end
+			Tabs()
+		end
+		TabSelect.Activated:Connect(TryOpen)
 		
 		FirstTab = true
 		local Tab = {}
-		if not ActiveTab then
+		if not ActiveTab and not Locked then
 			ActiveTab = Tab
 			ActiveContainer = Container
 			MarkVisited(Container)
@@ -4355,6 +4402,11 @@ function redzlib:MakeWindow(Configs)
 		function Tab:Visible(Bool)
 			Funcs:ToggleVisible(TabSelect, Bool)
 			Funcs:ToggleParent(Container, Bool, Containers)
+		end
+		function Tab:SetLocked(state)
+			Locked = state and true or false
+			LockIcon.Visible = Locked
+			TabSelect.AutoButtonColor = not Locked
 		end
 		function Tab:Destroy() TabSelect:Destroy() Container:Destroy() end
 		
@@ -4464,6 +4516,7 @@ function redzlib:MakeWindow(Configs)
 			FButton.Activated:Connect(function()
 				Funcs:FireCallback(Callback)
 			end)
+			TryAutoInject(BName, Callback)
 			
 			local Button = {}
 			function Button:Visible(...) Funcs:ToggleVisible(FButton, ...) end
